@@ -1,4 +1,16 @@
-body {
+.green {
+  color: green;
+}
+
+.pink {
+  color: pink;
+}
+
+button {
+  color: inherit;
+}
+
+/* body {
     font: 14px "Century Gothic", Futura, sans-serif;
     margin: 20px;
   }
@@ -47,4 +59,4 @@ body {
 
   .game-info {
     margin-left: 20px;
-  }
+  } */
