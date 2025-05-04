@@ -158,7 +158,11 @@ game_all_possible_traversible = [game_all_possible[i] for i in traversed]
 # 标记终局
 for state in game_all_possible_traversible:
     if len(get_next_states(state)) == 0:
-        retrograde_dict[state] = -1
+        (a, b), (c, d), e = state
+        if [a, b, c, d].count(None) == 2:
+            retrograde_dict[state] = -2
+        else:
+            retrograde_dict[state] = -1
 
 # 必赢或者必输的父节点
 while True:
@@ -167,7 +171,7 @@ while True:
     not_changed = True
     for state in game_all_possible_traversible:
         state_index = game_all_possible_reverse_dict[state]
-        if retrograde_dict.get(state, None) in [-1, 1]:
+        if retrograde_dict.get(state, None) in [-2, -1, 1, 2]:
             parents_indexes = reversed_graph[state_index]
             for parent_index in parents_indexes:
                 parent_state = game_all_possible[parent_index]
@@ -175,16 +179,31 @@ while True:
                 if retrograde_dict.get(parent_state, None) is not None:
                     continue
                 childs_indexes = forward_graph[parent_index]
-                # 如果 parent 的所有子节点均为赢，则 parent 输
+                # 如果 parent 的所有子节点均为大赢，则 parent 大输
                 if all(
-                    retrograde_dict.get(game_all_possible[child_index], None) == 1
+                    retrograde_dict.get(game_all_possible[child_index], None) == 2
+                    for child_index in childs_indexes
+                ):
+                    retrograde_dict[parent_state] = -2
+                    not_changed = False
+                # 如果 parent 的所有子节点均为赢，则 parent 输
+                elif all(
+                    retrograde_dict.get(game_all_possible[child_index], None) in [1, 2]
                     for child_index in childs_indexes
                 ):
                     retrograde_dict[parent_state] = -1
                     not_changed = False
+                # 如果存在子节点为大输，则 parent 大赢
+                elif any(
+                    retrograde_dict.get(game_all_possible[child_index], None) == -2
+                    for child_index in childs_indexes
+                ):
+                    retrograde_dict[parent_state] = 2
+                    not_changed = False
                 # 如果存在子节点为输，则 parent 赢
-                if any(
-                    retrograde_dict.get(game_all_possible[child_index], None) == -1
+                elif any(
+                    retrograde_dict.get(game_all_possible[child_index], None)
+                    in [-1, -2]
                     for child_index in childs_indexes
                 ):
                     retrograde_dict[parent_state] = 1
@@ -208,12 +227,12 @@ def what_to_do_next(state: Tuple[OneHand, OneHand, Turn]) -> None:
     next_win_or_loses = [
         retrograde_dict.get(next_state, None) for next_state in next_states
     ]
-    if current_win_or_lose == -1:
-        print("输")
+    if current_win_or_lose in [-1, -2]:
+        print(f"{'大' if current_win_or_lose == -2 else ''}输")
         print(f"因为自己的选择 {next_states} 的结果分别为 {next_win_or_loses}")
         print("对方都能赢")
-    elif current_win_or_lose == 1:
-        print("赢")
+    elif current_win_or_lose in [1, 2]:
+        print(f"{'大' if current_win_or_lose == 2 else ''}赢")
         print(f"因为自己的选择 {next_states} 的结果分别为 {next_win_or_loses}")
         print("选择让对方输的局面就能赢")
     else:
@@ -233,6 +252,10 @@ cytoscape_nodes = [
             if retrograde_dict.get(node, None) == 1
             else ' lose'
             if retrograde_dict.get(node, None) == -1
+            else ' winwin'
+            if retrograde_dict.get(node, None) == 2
+            else ' loselose'
+            if retrograde_dict.get(node, None) == -2
             else ''
         }",
     }
@@ -257,7 +280,13 @@ cytoscape_edges = [
 # print(len(traversed))  # 1934
 # print(game_all_possible_traversible)
 # print(graph)
-
+# for index, state in enumerate(game_all_possible):
+#     if index not in traversed:
+#         print(state)
 print(dumps(cytoscape_nodes + cytoscape_edges, indent=2, ensure_ascii=False))
 
 # print(get_next_states(((None, None), (3, 4), True)))
+# what_to_do_next(((1, None), (7, None), False))
+
+# for i in game_all_possible_traversible:
+#     print(retrograde_dict.get(i, None))
