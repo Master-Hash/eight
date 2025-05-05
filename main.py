@@ -4,24 +4,29 @@
 # 3. 如果超过7，则该数字的值变为1
 # 4. 如果两个数字均为8，则该玩家赢
 
+from functools import lru_cache
 from json import dumps
-from typing import List, Tuple, TypeAlias
+from typing import Dict, Final, List, Set, Tuple, TypeAlias
 
 OneHand: TypeAlias = Tuple[int | None, int | None]
 Turn: TypeAlias = bool
 StartIndex: TypeAlias = int
 EndIndex: TypeAlias = int
 
+COUNT_N: Final[int] = 8
 
+
+@lru_cache(maxsize=None)
 def sum_count_8(a1: int, a2: int) -> int | None:
-    if a1 + a2 == 8:
+    if a1 + a2 == COUNT_N:
         return None
-    elif a1 + a2 > 8:
+    elif a1 + a2 > COUNT_N:
         return 1
     else:
         return a1 + a2
 
 
+@lru_cache(maxsize=None)
 def get_next_states(
     state: Tuple[OneHand, OneHand, Turn],
 ) -> List[Tuple[OneHand, OneHand, Turn]]:
@@ -59,7 +64,7 @@ def get_next_states(
                 new_current_turn_state[i] = sum_count_8(
                     current_turn_state[i], other_player_state[j]
                 )
-                new_current_turn_state.sort(key=lambda x: 8 if x is None else x)
+                new_current_turn_state.sort(key=lambda x: COUNT_N if x is None else x)
                 white, black = [tuple(new_current_turn_state), other_player_state][
                     :: 1 if not state[2] else -1
                 ]
@@ -71,42 +76,9 @@ def get_next_states(
 
 # 单个玩家的两个数字
 one_player: List[OneHand] = [
-    (1, 1),
-    (1, 2),
-    (2, 2),
-    (1, 3),
-    (2, 3),
-    (3, 3),
-    (1, 4),
-    (2, 4),
-    (3, 4),
-    (4, 4),
-    (1, 5),
-    (2, 5),
-    (3, 5),
-    (4, 5),
-    (5, 5),
-    (1, 6),
-    (2, 6),
-    (3, 6),
-    (4, 6),
-    (5, 6),
-    (6, 6),
-    (1, 7),
-    (2, 7),
-    (3, 7),
-    (4, 7),
-    (5, 7),
-    (6, 7),
-    (7, 7),
-    (1, None),
-    (2, None),
-    (3, None),
-    (4, None),
-    (5, None),
-    (6, None),
-    (7, None),
-    (None, None),
+    (i if i != COUNT_N else None, j if j != COUNT_N else None)
+    for j in range(1, COUNT_N + 1)
+    for i in range(1, j + 1)
 ]
 
 game_all_possible: List[Tuple[OneHand, OneHand, Turn]] = [
@@ -119,12 +91,12 @@ game_all_possible_reverse_dict: dict[Tuple[OneHand, OneHand, Turn], int] = {
 
 # 键：局面元组
 # 值：None（默认值）：未知，1：当前玩家胜，-1：当前玩家输
-retrograde_dict: dict[Tuple[OneHand, OneHand, Turn], int] = {}
+retrograde_dict: Dict[Tuple[OneHand, OneHand, Turn], int] = {}
 
 
 graph: List[Tuple[StartIndex, EndIndex]] = []
-traversed: set[int] = set()
-to_be_traversed: set[int] = set()
+traversed: Set[int] = set()
+to_be_traversed: Set[int] = set()
 
 # 广度优先遍历
 # 起点为 game_all_possible[0]
@@ -140,13 +112,13 @@ while to_be_traversed:
             to_be_traversed.add(next_index)
 
 
-reversed_graph: dict[EndIndex, list[StartIndex]] = {}
+reversed_graph: Dict[EndIndex, List[StartIndex]] = {}
 for start_index, end_index in graph:
     if end_index not in reversed_graph:
         reversed_graph[end_index] = []
     reversed_graph[end_index].append(start_index)
 
-forward_graph: dict[StartIndex, list[EndIndex]] = {}
+forward_graph: Dict[StartIndex, List[EndIndex]] = {}
 for start_index, end_index in graph:
     if start_index not in forward_graph:
         forward_graph[start_index] = []
@@ -154,6 +126,9 @@ for start_index, end_index in graph:
 
 # 剔除没遍历到的节点
 game_all_possible_traversible = [game_all_possible[i] for i in traversed]
+
+print(len(game_all_possible_traversible))
+
 
 # 标记终局
 for state in game_all_possible_traversible:
@@ -166,12 +141,17 @@ for state in game_all_possible_traversible:
 
 # 必赢或者必输的父节点
 while True:
-    # print(retrograde_dict.__len__())
+    print(len(retrograde_dict))
 
     not_changed = True
     for state in game_all_possible_traversible:
         state_index = game_all_possible_reverse_dict[state]
-        if retrograde_dict.get(state, None) in [-2, -1, 1, 2]:
+        if (
+            retrograde_dict.get(state, None) in [-2, -1, 1, 2]
+            # 有些游戏的开局是确定的！
+            # and state_index in reversed_graph
+            and state_index != 0
+        ):
             parents_indexes = reversed_graph[state_index]
             for parent_index in parents_indexes:
                 parent_state = game_all_possible[parent_index]
@@ -283,7 +263,7 @@ cytoscape_edges = [
 # for index, state in enumerate(game_all_possible):
 #     if index not in traversed:
 #         print(state)
-print(dumps(cytoscape_nodes + cytoscape_edges, indent=2, ensure_ascii=False))
+# print(dumps(cytoscape_nodes + cytoscape_edges, indent=2, ensure_ascii=False))
 
 # print(get_next_states(((None, None), (3, 4), True)))
 # what_to_do_next(((1, None), (7, None), False))
